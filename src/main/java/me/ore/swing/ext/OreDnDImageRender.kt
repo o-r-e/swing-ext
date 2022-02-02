@@ -189,6 +189,8 @@ object OreDnDImageRender {
     // region Image, image offset, image side order
     /**
      * An image that will move with the mouse cursor during the drag-and-drop process
+     *
+     * _Note: when the Drag-and-Drop process terminates, this property is set to `null`_
      */
     var image: Image? = null
         set(new) {
@@ -608,6 +610,7 @@ object OreDnDImageRender {
     private fun dragDropEnd() {
         mousePosition = null
         component = null
+        image = null
     }
 
     /**

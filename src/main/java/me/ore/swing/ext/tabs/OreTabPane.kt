@@ -61,9 +61,9 @@ open class OreTabPane(
 
         // region Binding tabs and panes
         /**
-         * Map "tab -> panel"
+         * Map "tab -> reference to panel"
          */
-        private val TAB_TO_PANE_MAP = WeakHashMap<OreTab, OreTabPane>()
+        private val TAB_TO_PANE_MAP = WeakHashMap<OreTab, WeakReference<OreTabPane>>()
 
         /**
          * Change the panel to which a tab belongs
@@ -75,13 +75,19 @@ open class OreTabPane(
          */
         private fun setPaneForTab(tab: OreTab, pane: OreTabPane?) {
             val old = synchronized(TAB_TO_PANE_MAP) {
-                val old = TAB_TO_PANE_MAP.remove(tab)
-                if (pane == null) {
-                    TAB_TO_PANE_MAP.remove(tab)
+                val oldReference = TAB_TO_PANE_MAP[tab]
+                val old = oldReference?.get()
+                if (old == pane) {
+                    null
                 } else {
-                    TAB_TO_PANE_MAP[tab] = pane
+                    oldReference?.clear()
+                    if (pane == null) {
+                        TAB_TO_PANE_MAP.remove(tab)
+                    } else {
+                        TAB_TO_PANE_MAP[tab] = WeakReference(pane)
+                    }
+                    old
                 }
-                old
             }
 
             if (old != pane) {
@@ -110,7 +116,20 @@ open class OreTabPane(
          *
          * @return The panel that the tab is linked to
          */
-        fun getPaneForTab(tab: OreTab): OreTabPane? = synchronized(TAB_TO_PANE_MAP) { TAB_TO_PANE_MAP[tab] }
+        fun getPaneForTab(tab: OreTab): OreTabPane? {
+            return synchronized(TAB_TO_PANE_MAP) {
+                val reference = TAB_TO_PANE_MAP[tab]
+                if (reference == null) {
+                    null
+                } else {
+                    val result = reference.get()
+                    if (result == null) {
+                        TAB_TO_PANE_MAP.remove(tab)
+                    }
+                    result
+                }
+            }
+        }
         // endregion
     }
 

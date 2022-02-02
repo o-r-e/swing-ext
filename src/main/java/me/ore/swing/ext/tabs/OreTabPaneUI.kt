@@ -4,7 +4,6 @@ import me.ore.swing.ext.OreSwingExtUtils
 import java.awt.*
 import java.awt.event.MouseEvent
 import java.awt.image.BufferedImage
-import java.lang.ref.WeakReference
 import java.util.*
 import javax.swing.JComponent
 import javax.swing.JLayer
@@ -22,53 +21,33 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
     companion object {
         // region Storing UIs
         /**
-         * A set of weak references to all additional UI layers created
-         *
-         * When [getUiObjects] is called, this set is cleared of those references that refer to objects collected by the garbage collector
+         * Map "UI -> null" with weak keys
          */
-        private val UI_REFERENCES = HashSet<WeakReference<OreTabPaneUI>>()
+        private val UI_MAP = WeakHashMap<OreTabPaneUI, Any?>()
 
         /**
-         * Stores an additional UI layer in [UI_REFERENCES]
+         * Stores an additional UI layer as key in [UI_MAP]
          *
          * This method is thread-safe
          *
          * @param ui Additional UI layer, which must be stored
          */
         private fun store(ui: OreTabPaneUI) {
-            val reference = WeakReference(ui)
-            synchronized(UI_REFERENCES) {
-                UI_REFERENCES.add(reference)
+            synchronized(UI_MAP) {
+                UI_MAP[ui] = null
             }
         }
 
         /**
          * Getting all additional UI layers
          *
-         * When this method is called, [UI_REFERENCES] is cleared of those references that refer to objects collected by the garbage collector
-         *
          * This method is thread-safe
+         *
+         * @return Additional UI layers
          */
         private fun getUiObjects(): Collection<OreTabPaneUI> {
-            return synchronized(UI_REFERENCES) {
-                val result = ArrayList<OreTabPaneUI>(UI_REFERENCES.size)
-
-                val removedReferences = HashSet<WeakReference<OreTabPaneUI>>()
-
-                UI_REFERENCES.forEach {
-                    val ui = it.get()
-                    if (ui == null) {
-                        removedReferences.add(it)
-                    } else {
-                        result.add(ui)
-                    }
-                }
-
-                if (removedReferences.isNotEmpty()) {
-                    UI_REFERENCES.removeAll(removedReferences)
-                }
-
-                result
+            return synchronized(UI_MAP) {
+                UI_MAP.keys.toList()
             }
         }
         // endregion

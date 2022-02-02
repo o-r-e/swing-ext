@@ -130,7 +130,7 @@ object OreTabPaneTest {
 
             rightPane.transferHandler = OreTabTransferHandler()
             rightPane.useTransferHandlerOnTabDragged = true
-            leftPane.useDndImageRendererOnTabDragged = true
+            rightPane.useDndImageRendererOnTabDragged = true
 
             frame.addWindowListener(object: WindowAdapter() {
                 override fun windowOpened(e: WindowEvent?) {

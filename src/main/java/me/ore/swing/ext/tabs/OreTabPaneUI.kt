@@ -1,6 +1,6 @@
 package me.ore.swing.ext.tabs
 
-import me.ore.swing.ext.OreSwingExtUtils
+import me.ore.swing.ext.OreSwingExt
 import java.awt.*
 import java.awt.event.MouseEvent
 import java.awt.image.BufferedImage
@@ -89,7 +89,7 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
                 try {
                     uiObject.updateUiDefaults()
                 } catch (e: Exception) {
-                    OreSwingExtUtils.handle(e)
+                    OreSwingExt.handle(e)
                 }
             }
         }
@@ -607,7 +607,7 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
             try {
                 block(listener)
             } catch (e: Exception) {
-                OreSwingExtUtils.handle(e)
+                OreSwingExt.handle(e)
             }
         }
     }

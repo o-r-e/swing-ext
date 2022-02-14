@@ -1,8 +1,7 @@
 package me.ore.swing.ext.tabs
 
 import me.ore.swing.ext.OreDnDImageRender
-import me.ore.swing.ext.OreSwingExtUtils
-import me.ore.swing.ext._ext.javax.swing.getOreComponentImage
+import me.ore.swing.ext.OreSwingExt
 import me.ore.swing.ext.tabs.dnd.OreTabDropPaintData
 import java.awt.BorderLayout
 import java.awt.Component
@@ -98,13 +97,13 @@ open class OreTabPane(
                         }
                     }
                 } catch (e: Exception) {
-                    OreSwingExtUtils.handle(e)
+                    OreSwingExt.handle(e)
                 }
 
                 try {
                     tab.updatePane()
                 } catch (e: Exception) {
-                    OreSwingExtUtils.handle(e)
+                    OreSwingExt.handle(e)
                 }
             }
         }
@@ -512,7 +511,7 @@ open class OreTabPane(
                 it.exportAsDrag(this, newEvent, TransferHandler.MOVE)
                 if (this.useDndImageRendererOnTabDragged) {
                     this.pane.getBoundsAt(index)?.let { tabBounds ->
-                        val image = this.pane.getOreComponentImage(tabBounds)
+                        val image = OreSwingExt.getImageOf(this.pane, tabBounds)
                         if ((image.width > 0) && (image.height > 0)) {
                             OreDnDImageRender.image = image
                         }
@@ -732,7 +731,7 @@ open class OreTabPane(
         val bounds = this.getBoundsAt(index)
             ?: return null
 
-        return this.getOreComponentImage(bounds)
+        return OreSwingExt.getImageOf(this, bounds)
     }
 
 
@@ -956,7 +955,7 @@ open class OreTabPane(
                 try {
                     block(event, pane)
                 } catch (e: Exception) {
-                    OreSwingExtUtils.handle(e)
+                    OreSwingExt.handle(e)
                 }
             }
         }

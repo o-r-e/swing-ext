@@ -1,6 +1,5 @@
 package me.ore.swing.ext
 
-import me.ore.swing.ext._ext.java.awt.getOreComponentWindow
 import java.awt.*
 import java.awt.dnd.DragSource
 import java.awt.dnd.DragSourceAdapter
@@ -108,7 +107,7 @@ object OreDnDImageRender {
             if (field != new) {
                 field = new
 
-                componentWindow = new?.getOreComponentWindow()
+                componentWindow = new?.let { OreSwingExt.getWindowOf(new) }
             }
         }
 
@@ -275,6 +274,7 @@ object OreDnDImageRender {
      * @param imageOffsetY See [OreDnDImageRender.imageOffsetY]
      * @param sides See [OreDnDImageRender.imageSideOrder]
      */
+    @Suppress("DuplicatedCode")
     private data class Config(
         val componentWindow: Window,
         val mousePosition: Point,

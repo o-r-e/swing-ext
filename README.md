@@ -8,25 +8,27 @@ More info about classes may be found in [project's wiki](https://github.com/o-r-
 ### Using snapshots
 
 ```xml
-...
-<repositories>
-    <repository>
-        <id>sonatype - snapshots</id>
-        <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
-        <snapshots>
-            <enabled>true</enabled>
-        </snapshots>
-    </repository>
-</repositories>
-...
-<dependencies>
+<project>
     ...
-    <dependency>
-        <groupId>me.o-r-e</groupId>
-        <artifactId>swing-ext</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
-    </dependency>
+    <repositories>
+        <repository>
+            <id>sonatype - snapshots</id>
+            <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
     ...
-</dependencies>
-...
+    <dependencies>
+        ...
+        <dependency>
+            <groupId>me.o-r-e</groupId>
+            <artifactId>swing-ext</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        ...
+    </dependencies>
+    ...
+</project>
 ```

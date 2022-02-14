@@ -3,6 +3,7 @@ package me.ore.swing.ext.test
 import me.ore.swing.ext.OreDnDImageRender
 import me.ore.swing.ext.tabs.*
 import me.ore.swing.ext.tabs.dnd.OreTabTransferHandler
+import me.ore.swing.ext.test.util.OreSwingExtTest
 import java.awt.*
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
@@ -14,19 +15,8 @@ object OreTabPaneTest {
     @JvmStatic
     fun main(args: Array<String>) {
         EventQueue.invokeLater {
-            val laf = 2
-            try {
-                val lafs = arrayOf(
-                    "com.sun.java.swing.plaf.motif.MotifLookAndFeel",
-                    "javax.swing.plaf.metal.MetalLookAndFeel",
-                    "javax.swing.plaf.nimbus.NimbusLookAndFeel",
-                    UIManager.getSystemLookAndFeelClassName()
-                )
-
-                UIManager.setLookAndFeel(lafs[laf])
-            } catch (e: Exception) {
-                e.printStackTrace(System.out)
-            }
+            val laf = OreSwingExtTest.LafChoice.SYSTEM
+            OreSwingExtTest.applyLaf(laf)
 
             OreDnDImageRender.init()
 

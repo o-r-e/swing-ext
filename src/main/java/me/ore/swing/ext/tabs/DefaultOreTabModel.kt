@@ -1,6 +1,6 @@
 package me.ore.swing.ext.tabs
 
-import me.ore.swing.ext.OreSwingExtUtils
+import me.ore.swing.ext.OreSwingExt
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashSet
@@ -34,7 +34,7 @@ open class DefaultOreTabModel: OreTabModel {
             try {
                 block(listener)
             } catch (e: Exception) {
-                OreSwingExtUtils.handle(e)
+                OreSwingExt.handle(e)
             }
         }
     }

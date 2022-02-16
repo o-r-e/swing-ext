@@ -205,6 +205,7 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
 
         /**
          * Key for default padding of the close button from the top edge of the close button area
+         * (see description for [closeButtonPlaceSize])
          *
          * Used to get a value using [UIManager.get]
          */
@@ -219,6 +220,7 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
 
         /**
          * Key for default padding of the close button from the left edge of the close button area
+         * (see description for [closeButtonPlaceSize])
          *
          * Used to get a value using [UIManager.get]
          */
@@ -233,6 +235,7 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
 
         /**
          * Key for default padding of the close button from the bottom edge of the close button area
+         * (see description for [closeButtonPlaceSize])
          *
          * Used to get a value using [UIManager.get]
          */
@@ -247,6 +250,7 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
 
         /**
          * Key for default padding of the close button from the right edge of the close button area
+         * (see description for [closeButtonPlaceSize])
          *
          * Used to get a value using [UIManager.get]
          */

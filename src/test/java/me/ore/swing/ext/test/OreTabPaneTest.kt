@@ -12,11 +12,13 @@ import kotlin.random.Random
 
 
 object OreTabPaneTest {
+    private val LAF = OreSwingExtTest.LafChoice.SYSTEM
+
     @JvmStatic
     fun main(args: Array<String>) {
         EventQueue.invokeLater {
-            val laf = OreSwingExtTest.LafChoice.SYSTEM
-            OreSwingExtTest.applyLaf(laf)
+            OreSwingExtTest.applyLaf(LAF)
+            UIManager.put(OreTabPaneUI.UI_KEY__DROP_LOCATION__COLOR, Color(255, 0, 0, 150))
 
             OreDnDImageRender.init()
 

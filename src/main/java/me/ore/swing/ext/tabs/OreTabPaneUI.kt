@@ -1,13 +1,17 @@
 package me.ore.swing.ext.tabs
 
 import me.ore.swing.ext.OreSwingExt
+import me.ore.swing.ext.util.OreGraphicsConfig
+import me.ore.swing.ext.util.OreSwingShapeInfo
 import java.awt.*
 import java.awt.event.MouseEvent
+import java.awt.geom.Path2D
 import java.awt.image.BufferedImage
 import java.util.*
 import javax.swing.JComponent
 import javax.swing.JLayer
 import javax.swing.JTabbedPane
+import javax.swing.UIManager
 import javax.swing.plaf.LayerUI
 import kotlin.collections.ArrayList
 import kotlin.collections.HashSet
@@ -16,451 +20,581 @@ import kotlin.collections.HashSet
 /**
  * Additional UI layer for [OreTabPane]
  */
-@Suppress("LeakingThis")
 open class OreTabPaneUI: LayerUI<JTabbedPane>() {
     companion object {
-        // region Storing UIs
+        // region Close button images; UI manager keys
         /**
-         * Map "UI -> null" with weak keys
+         * Default "viewBox" used in [createCloseButtonImage] (default viewBox in [Material Design Icons](https://materialdesignicons.com/))
          */
-        private val UI_MAP = WeakHashMap<OreTabPaneUI, Any?>()
+        private val CLOSE_BUTTON_IMAGE__VIEW_BOX = Rectangle(2, 2, 20, 20)
 
         /**
-         * Stores an additional UI layer as key in [UI_MAP]
+         * Image for close button - simple diagonal cross
          *
-         * This method is thread-safe
+         * "Programmatic" copy of [icon "close" in Material Design Icons](https://github.com/Templarian/MaterialDesign/blob/master/svg/close.svg)
          *
-         * @param ui Additional UI layer, which must be stored
+         * Used in [createCloseButtonImage]
          */
-        private fun store(ui: OreTabPaneUI) {
-            synchronized(UI_MAP) {
-                UI_MAP[ui] = null
-            }
+        private val CLOSE_BUTTON_IMAGE__PATH__CROSS = Path2D.Double().apply {
+            this.moveTo(19.0, 6.41) // M19,6.41
+            this.lineTo(17.59, 5.0) // L17.59,5
+            this.lineTo(12.0, 10.59) // L12,10.59
+            this.lineTo(6.41, 5.0) // L6.41,5
+            this.lineTo(5.0, 6.41) // L5,6.41
+            this.lineTo(10.59, 12.0) // L10.59,12
+            this.lineTo(5.0, 17.59) // L5,17.59
+            this.lineTo(6.41, 19.0) // L6.41,19
+            this.lineTo(12.0, 13.41) // L12,13.41
+            this.lineTo(17.59, 19.0) // L17.59,19
+            this.lineTo(19.0, 17.59) // L19,17.59
+            this.lineTo(13.41, 12.0) // L13.41,12
+            this.lineTo(19.0, 6.41) // L19,6.41
+            this.closePath() // Z
         }
 
         /**
-         * Getting all additional UI layers
+         * Image for close button - diagonal cross inside circle
          *
-         * This method is thread-safe
+         * "Programmatic" copy of [icon "close-circle" in Material Design Icons](https://github.com/Templarian/MaterialDesign/blob/master/svg/close-circle.svg)
          *
-         * @return Additional UI layers
+         * Used in [createCloseButtonImage]
          */
-        private fun getUiObjects(): Collection<OreTabPaneUI> {
-            return synchronized(UI_MAP) {
-                UI_MAP.keys.toList()
-            }
-        }
-        // endregion
-
-
-        // region Updating UI defaults
-        /**
-         * An indication that the default values are currently being updated
-         */
-        private var defaultsUpdating = false
-
-        /**
-         * Called to disable updating all [OreTabPane] when properties change:
-         *
-         * * [closeButtonDefaultColorIdle], [closeButtonDefaultColorHovered], [closeButtonDefaultColorPressed]
-         * * [closeButtonWidth], [closeButtonHeight]
-         * * [closeButtonPaddingTop], [closeButtonPaddingLeft], [closeButtonPaddingBottom], [closeButtonPaddingRight]
-         * * [closeButtonTranslateX], [closeButtonTranslateY]
-         * * [dropLocationDefaultColor]
-         *
-         * The [endUpdatingDefaults] method should always be called after this method
-         *
-         * This method is NOT thread-safe, it can only be run inside [EventQueue.dispatchThread]
-         */
-        fun startUpdatingDefaults() {
-            defaultsUpdating = true
+        private val CLOSE_BUTTON_IMAGE__PATH__CIRCLE: Path2D.Double = Path2D.Double().apply {
+            this.moveTo(12.0, 2.0) // M12,2
+            this.curveTo(17.53, 2.0, 22.0, 6.47, 22.0, 12.0) // C17.53,2 22,6.47 22,12
+            this.curveTo(22.0, 17.53, 17.53, 22.0, 12.0, 22.0) // C22,17.53 17.53,22 12,22
+            this.curveTo(6.47, 22.0, 2.0, 17.53, 2.0, 12.0) // C6.47,22 2,17.53 2,12
+            this.curveTo(2.0, 6.47, 6.47, 2.0, 12.0, 2.0) // C2,6.47 6.47,2 12,2
+            this.moveTo(15.59, 7.0) // M15.59,7
+            this.lineTo(12.0, 10.59) // L12,10.59
+            this.lineTo(8.41, 7.0) // L8.41,7
+            this.lineTo(7.0 ,8.41) // L7,8.41
+            this.lineTo(10.59, 12.0) // L10.59,12
+            this.lineTo(7.0, 15.59) // L7,15.59
+            this.lineTo(8.41, 17.0) // L8.41,17
+            this.lineTo(12.0, 13.41) // L12,13.41
+            this.lineTo(15.59, 17.0) // L15.59,17
+            this.lineTo(17.0, 15.59) // L17,15.59
+            this.lineTo(13.41, 12.0) // L13.41,12
+            this.lineTo(17.0, 8.41) // L17,8.41
+            this.lineTo(15.59, 7.0) // L15.59,7
+            this.closePath() // Z
         }
 
-        /**
-         * If [defaultsUpdating] is `false`, then each object returned by the [getUiObjects] method will have the [updateUiDefaults] method called
-         *
-         * This method is NOT thread-safe, it can only be run inside [EventQueue.dispatchThread]
-         */
-        private fun updateDefaults() {
-            if (defaultsUpdating)
-                return
-
-            getUiObjects().forEach { uiObject ->
-                try {
-                    uiObject.updateUiDefaults()
-                } catch (e: Exception) {
-                    OreSwingExt.handle(e)
-                }
-            }
-        }
-
-        /**
-         * Triggers an update of all [OreTabPane] to apply property values:
-         *
-         * * [closeButtonDefaultColorIdle], [closeButtonDefaultColorHovered], [closeButtonDefaultColorPressed]
-         * * [closeButtonWidth], [closeButtonHeight]
-         * * [closeButtonPaddingTop], [closeButtonPaddingLeft], [closeButtonPaddingBottom], [closeButtonPaddingRight]
-         * * [closeButtonTranslateX], [closeButtonTranslateY]
-         * * [dropLocationDefaultColor]
-         *
-         * This method should always run after calling [startUpdatingDefaults]
-         *
-         * This method is NOT thread-safe, it can only be run inside [EventQueue.dispatchThread]
-         */
-        fun endUpdatingDefaults() {
-            defaultsUpdating = false
-            updateDefaults()
-        }
-
-        /**
-         * Order of execution:
-         *
-         * * [startUpdatingDefaults]
-         * * [block]
-         * * [endUpdatingDefaults] (in `finally` block)
-         *
-         * [block] is for changing one or more of the properties:
-         *
-         * * [closeButtonDefaultColorIdle], [closeButtonDefaultColorHovered], [closeButtonDefaultColorPressed]
-         * * [closeButtonWidth], [closeButtonHeight]
-         * * [closeButtonPaddingTop], [closeButtonPaddingLeft], [closeButtonPaddingBottom], [closeButtonPaddingRight]
-         * * [closeButtonTranslateX], [closeButtonTranslateY]
-         * * [dropLocationDefaultColor]
-         *
-         * This method is NOT thread-safe, it can only be run inside [EventQueue.dispatchThread]
-         *
-         * @param block Executable block
-         */
-        @Suppress("MemberVisibilityCanBePrivate", "unused")
-        inline fun updateDefaults(block: () -> Unit) {
-            try {
-                startUpdatingDefaults()
-                block()
-            } finally {
-                endUpdatingDefaults()
-            }
-        }
-        // endregion
-
-
-        // region Close button image & colors
         /**
          * Create an image for the close button
          *
+         * If `circle` is `true`, then uses copy of [icon "close-circle" in Material Design Icons](https://github.com/Templarian/MaterialDesign/blob/master/svg/close-circle.svg);
+         * otherwise - uses copy of [icon "close" in Material Design Icons](https://github.com/Templarian/MaterialDesign/blob/master/svg/close.svg)
+         *
+         * Used icon will be resized to size `width` × `height`
+         *
          * @param color Color
          * @param circle If set to `true`, a cross will be drawn within a circle; otherwise - just a cross will be drawn
-         * @param width Image width in pixels; default - `12`
-         * @param height Image height in pixels; default - `12`
-         * @param crossInsetsTop Indentation of the cross from the top edge of the image; defaults to ([height] / 4) when [circle] is `true` and ([height] / 6) when [circle] is `false`
-         * @param crossInsetsLeft Indentation of the cross from the left edge of the image; default ([width] / 4) when [circle] is `true` and ([width] / 6) when [circle] is `false`
-         * @param crossInsetsBottom Indentation of the cross from the bottom edge of the image; defaults to ([height] / 4) when [circle] is `true` and ([height] / 6) when [circle] is `false`
-         * @param crossInsetsRight Indentation of the cross from the right edge of the image; default ([width] / 4) when [circle] is `true` and ([width] / 6) when [circle] is `false`
-         * @param crossLineWidth The thickness of the lines of the cross in pixels; default - `1.5`
+         * @param width Image width in pixels; default - [CLOSE_BUTTON__WIDTH]
+         * @param height Image height in pixels; default - [CLOSE_BUTTON__HEIGHT]
          *
          * @return Image for close button
          */
         @Suppress("MemberVisibilityCanBePrivate")
-        fun createCloseButtonImage(
-            color: Color,
-            circle: Boolean,
-            width: Int = 12,
-            height: Int = 12,
-            crossInsetsTop: Int = if (circle) (height / 4) else (height / 6),
-            crossInsetsLeft: Int = if (circle) (width / 4) else (width / 6),
-            crossInsetsBottom: Int = if (circle) (height / 4) else (height / 6),
-            crossInsetsRight: Int = if (circle) (width / 4) else (width / 6),
-            crossLineWidth: Float = 1.5f
-        ): BufferedImage {
-            val result = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+        fun createCloseButtonImage(color: Color, circle: Boolean, width: Int = CLOSE_BUTTON__WIDTH, height: Int = CLOSE_BUTTON__HEIGHT): BufferedImage {
+            val originalPath = if (circle) { CLOSE_BUTTON_IMAGE__PATH__CIRCLE } else { CLOSE_BUTTON_IMAGE__PATH__CROSS }
 
-            val graphics = result.createGraphics()
-                ?: error("Cannot create graphics for buffered image")
+            val info = OreSwingShapeInfo(Rectangle(CLOSE_BUTTON_IMAGE__VIEW_BOX), Path2D.Double(originalPath))
+            info.scale(width / info.viewBox.width, height / info.viewBox.height)
 
-            try {
-                graphics.setRenderingHints(mapOf(
-                    RenderingHints.KEY_ANTIALIASING to RenderingHints.VALUE_ANTIALIAS_ON,
-                    RenderingHints.KEY_FRACTIONALMETRICS to RenderingHints.VALUE_FRACTIONALMETRICS_ON
-                ))
-                graphics.color = color
-                graphics.stroke = BasicStroke(crossLineWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
-
-                @Suppress("UnnecessaryVariable")
-                val lineX1 = crossInsetsLeft
-                val lineX2 = width - crossInsetsRight - 1
-                @Suppress("UnnecessaryVariable")
-                val lineY1 = crossInsetsTop
-                val lineY2 = height - crossInsetsBottom - 1
-
-                val composite = graphics.composite
-                try {
-                    if (circle) {
-                        graphics.fillOval(0, 0, width, height)
-                        graphics.composite = AlphaComposite.getInstance(AlphaComposite.CLEAR, 0f)
-                    }
-                    graphics.drawLine(lineX1, lineY1, lineX2, lineY2)
-                    graphics.drawLine(lineX2, lineY1, lineX1, lineY2)
-                } finally {
-                    graphics.composite = composite
-                }
-            } finally {
-                graphics.dispose()
-            }
-
-            return result
+            return info.toImage(OreGraphicsConfig(color = color))
         }
 
-        /**
-         * Normal close button color
-         *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
-         */
-        var closeButtonDefaultColorIdle: Color = Color(0, 0, 0, 100)
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
 
         /**
-         * Close button color on hover
+         * Default value for [closeButtonImageIdle]
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
+         * Image for close button in the normal state (no hover and no click)
          *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Simple diagonal cross
+         *
+         * Copy of [icon "close" in Material Design Icons](https://github.com/Templarian/MaterialDesign/blob/master/svg/close.svg)
+         * painted with `java.awt.Color(0, 0, 0, 100)`
          */
-        var closeButtonDefaultColorHovered: Color = Color(0, 0, 0, 100)
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        val CLOSE_BUTTON_IMAGE__IDLE: BufferedImage = createCloseButtonImage(Color(0, 0, 0, 100), false)
 
         /**
-         * Close button color if pressed
+         * Key of default value for [closeButtonImageIdle]
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Used to get a value using [UIManager.get]
          */
-        var closeButtonDefaultColorPressed: Color = Color(0, 0, 0, 200)
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        const val UI_KEY__CLOSE_BUTTON_IMAGE__IDLE: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON_IMAGE__IDLE"
+
+        /**
+         * Default value for [closeButtonImageHovered]
+         *
+         * Image for close button on hover but without pressing
+         *
+         * Diagonal cross inside circle
+         *
+         * Copy of [icon "close-circle" in Material Design Icons](https://github.com/Templarian/MaterialDesign/blob/master/svg/close-circle.svg)
+         * painted with `java.awt.Color(0, 0, 0, 100)`
+         */
+        val CLOSE_BUTTON_IMAGE__HOVERED: BufferedImage = createCloseButtonImage(Color(0, 0, 0, 100), true)
+
+        /**
+         * Key of default value for [closeButtonImageHovered]
+         *
+         * Used to get a value using [UIManager.get]
+         */
+        const val UI_KEY__CLOSE_BUTTON_IMAGE__HOVERED: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON_IMAGE__HOVERED"
+
+        /**
+         * Default value for [closeButtonImagePressed]
+         *
+         * Image for close button on hover and pressing
+         *
+         * Diagonal cross inside circle
+         *
+         * Copy of [icon "close-circle" in Material Design Icons](https://github.com/Templarian/MaterialDesign/blob/master/svg/close-circle.svg)
+         * painted with `java.awt.Color(0, 0, 0, 200)`
+         */
+        val CLOSE_BUTTON_IMAGE__PRESSED: BufferedImage = createCloseButtonImage(Color(0, 0, 0, 200), true)
+
+        /**
+         * Key of default value for [closeButtonImagePressed]
+         *
+         * Used to get a value using [UIManager.get]
+         */
+        const val UI_KEY__CLOSE_BUTTON_IMAGE__PRESSED: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON_IMAGE__PRESSED"
         // endregion
 
 
-        // region Sizes & coordinates
+        // region Close button sizes and coordinates; UI manager keys
         /**
-         * Default close button width, in pixels
+         * Default close button width, in pixels (`12` pixels)
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Default value for [closeButtonSize].[width][Dimension.width]
          */
-        var closeButtonWidth: Int = 12
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        const val CLOSE_BUTTON__WIDTH: Int = 12
 
         /**
-         * Default close button height, in pixels
+         * Key of default value for [closeButtonSize].[width][Dimension.width]
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Used to get a value using [UIManager.get]
          */
-        var closeButtonHeight: Int = 12
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        const val UI_KEY__CLOSE_BUTTON__WIDTH: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON__WIDTH"
 
         /**
-         * The default padding of the close button from the top edge of the close button area, in pixels
+         * Default close button height, in pixels (`12` pixels)
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Default value for [closeButtonSize].[height][Dimension.height]
          */
-        var closeButtonPaddingTop: Int = 2
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        const val CLOSE_BUTTON__HEIGHT: Int = 12
 
         /**
-         * The default padding of the close button from the left edge of the close button area, in pixels
+         * Key of default value for [closeButtonSize].[height][Dimension.height]
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Used to get a value using [UIManager.get]
          */
-        var closeButtonPaddingLeft: Int = 2
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        const val UI_KEY__CLOSE_BUTTON__HEIGHT: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON__HEIGHT"
+
 
         /**
-         * The default padding of the close button from the bottom edge of the close button area, in pixels
+         * The default padding of the close button from the top edge of the close button area, in pixels (`2` pixels)
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Used when calculating [closeButtonPlaceSize]
          */
-        var closeButtonPaddingBottom: Int = 2
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        const val CLOSE_BUTTON__PADDING_TOP: Int = 2
 
         /**
-         * The default padding of the close button from the right edge of the close button area, in pixels
+         * Key for default padding of the close button from the top edge of the close button area
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Used to get a value using [UIManager.get]
          */
-        var closeButtonPaddingRight: Int = 2
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        const val UI_KEY__CLOSE_BUTTON__PADDING_TOP: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON__PADDING_TOP"
 
         /**
-         * The default offset of the close button relative to the close button's area, on x-axis, in pixels
+         * The default padding of the close button from the left edge of the close button area, in pixels (`2` pixels)
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Used when calculating [closeButtonPlaceSize]
          */
-        var closeButtonTranslateX: Int = -1
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        const val CLOSE_BUTTON__PADDING_LEFT: Int = 2
 
         /**
-         * The default offset of the close button relative to the close button's area, on y-axis, in pixels
+         * Key for default padding of the close button from the left edge of the close button area
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
-         *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * Used to get a value using [UIManager.get]
          */
-        var closeButtonTranslateY: Int = 0
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
-            }
+        const val UI_KEY__CLOSE_BUTTON__PADDING_LEFT: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON__PADDING_LEFT"
+
+        /**
+         * The default padding of the close button from the bottom edge of the close button area, in pixels (`2` pixels)
+         *
+         * Used when calculating [closeButtonPlaceSize]
+         */
+        const val CLOSE_BUTTON__PADDING_BOTTOM: Int = 2
+
+        /**
+         * Key for default padding of the close button from the bottom edge of the close button area
+         *
+         * Used to get a value using [UIManager.get]
+         */
+        const val UI_KEY__CLOSE_BUTTON__PADDING_BOTTOM: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON__PADDING_BOTTOM"
+
+        /**
+         * The default padding of the close button from the right edge of the close button area, in pixels (`2` pixels)
+         *
+         * Used when calculating [closeButtonPlaceSize]
+         */
+        const val CLOSE_BUTTON__PADDING_RIGHT: Int = 2
+
+        /**
+         * Key for default padding of the close button from the right edge of the close button area
+         *
+         * Used to get a value using [UIManager.get]
+         */
+        const val UI_KEY__CLOSE_BUTTON__PADDING_RIGHT: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON__PADDING_RIGHT"
+
+
+        /**
+         * The default offset of the close button relative to the close button's area, on x-axis, in pixels (`-1` pixel)
+         *
+         * Default value for [closeButtonTranslate].[x][Point.x]
+         */
+        const val CLOSE_BUTTON__TRANSLATE_X: Int = -1
+
+        /**
+         * Key of default value for [closeButtonTranslate].[x][Point.x]
+         *
+         * Used to get a value using [UIManager.get]
+         */
+        const val UI_KEY__CLOSE_BUTTON__TRANSLATE_X: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON__TRANSLATE_X"
+
+        /**
+         * The default offset of the close button relative to the close button's area, on y-axis, in pixels (`0` pixels)
+         *
+         * Default value for [closeButtonTranslate].[y][Point.y]
+         */
+        const val CLOSE_BUTTON__TRANSLATE_Y: Int = 0
+
+        /**
+         * Key of default value for [closeButtonTranslate].[y][Point.y]
+         *
+         * Used to get a value using [UIManager.get]
+         */
+        const val UI_KEY__CLOSE_BUTTON__TRANSLATE_Y: String = "me.ore.swing.ext.tabs.OreTabPaneUI.CLOSE_BUTTON__TRANSLATE_Y"
+        // endregion
+
+
+        // region Drop location color
+        /**
+         * Default color for drawing drop location (`java.awt.Color(0, 97, 168, 127)`)
+         *
+         * Default value for [dropLocationColor]
+         */
+        val DROP_LOCATION__COLOR: Color = Color(0, 97, 168, 127)
+
+        /**
+         * Key of default value for [dropLocationColor]
+         *
+         * Used to get a value using [UIManager.get]
+         */
+        const val UI_KEY__DROP_LOCATION__COLOR: String = "me.ore.swing.ext.tabs.OreTabPaneUI.DROP_LOCATION__COLOR"
         // endregion
 
 
         /**
-         * Default color for drawing drop location
+         * Checks and optionally resizes `image`
          *
-         * On change, starts redrawing all [OreTabPane] if [startUpdatingDefaults] has not been called before or [endUpdatingDefaults] has already been called yet
+         * @param image Original image
+         * @param requiredSize Required image size
          *
-         * This property is NOT thread-safe, it can only be changed inside [EventQueue.dispatchThread]
+         * @return If the size of `image` equals `requiredSize`, return `image`; otherwise, returns a scaled copy of `image` with size equal to `requiredSize`
          */
-        var dropLocationDefaultColor: Color = Color(0, 97, 168, 127)
-            set(new) {
-                if (field != new) {
-                    field = new
-                    updateDefaults()
-                }
+        private fun checkImageSize(image: Image, requiredSize: Dimension): Image {
+            val requiredWidth = requiredSize.width
+            val requiredHeight = requiredSize.height
+
+            return if ((image.getWidth(null) == requiredWidth) && (image.getHeight(null) == requiredHeight)) {
+                image
+            } else {
+                image.getScaledInstance(requiredWidth, requiredHeight, Image.SCALE_SMOOTH)
             }
+        }
     }
 
 
-    // region Sizes & coordinates
+    // region UI defaults
+    /**
+     * Getting the value of the `requiredClass` class using [UIManager.get]
+     *
+     * @param T Result type
+     * @param requiredClass Required result class
+     * @param key Default value key, used to look up the value using `UIManager.get()`
+     * @param defaultValue The value to return if `UIManager.get()` does not return a valid value
+     *
+     * @return If `UIManager.get()` returns `null` or a class object that is not assignable to `requiredClass` then this method returns `defaultValue`;
+     * otherwise, the value obtained by calling `UIManager.get()`
+     */
+    @Suppress("UNCHECKED_CAST")
+    protected open fun <T> getUiDefaults(requiredClass: Class<T>, key: String, defaultValue: T): T {
+        val loaded = try {
+            val value = UIManager.get(key)
+            when {
+                (value == null) -> null
+                (requiredClass.isAssignableFrom(value.javaClass)) -> value as T
+                else -> error("Invalid value for key \"$key\" in UI manager - expected ${requiredClass.name}, but found ${value.javaClass.name}")
+            }
+        } catch (e: Exception) {
+            OreSwingExt.handle(e)
+            null
+        }
+
+        return loaded ?: defaultValue
+    }
+
+    /**
+     * Getting [Int] value using [UIManager.get]
+     *
+     * @param key Default value key, used to look up the value using `UIManager.get()`
+     * @param defaultValue The value to return if `UIManager.get()` does not return a valid value
+     *
+     * @return If `UIManager.get()` returns `null` or a class object that is not assignable to `Int` class then this method returns `defaultValue`;
+     * otherwise, the value obtained by calling `UIManager.get()`
+     */
+    protected open fun getUiDefaultsInt(key: String, defaultValue: Int): Int = this.getUiDefaults(Int::class.java, key, defaultValue)
+
+    /**
+     * Getting [Image] value using [UIManager.get]
+     *
+     * @param key Default value key, used to look up the value using `UIManager.get()`
+     * @param defaultValue The value to return if `UIManager.get()` does not return a valid value
+     * @param requiredSize If not equal to `null`, the resulting image will be scaled to this size
+     *
+     * @return If `UIManager.get()` returns `null` or a class object that is not assignable to `Image` class then this method returns `defaultValue`;
+     * otherwise, the value obtained by calling `UIManager.get()`
+     */
+    protected open fun getUiDefaultsImage(key: String, defaultValue: Image, requiredSize: Dimension? = null): Image {
+        return if (requiredSize == null) {
+            this.getUiDefaults(Image::class.java, key, defaultValue)
+        } else {
+            checkImageSize(this.getUiDefaults(Image::class.java, key, defaultValue), requiredSize)
+        }
+    }
+
+
     /**
      * Creating the size of the close button
      *
-     * By default - `Dimension`([closeButtonWidth], [closeButtonHeight])
+     * Result will have values:
+     *
+     * * [width][Dimension.width] - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__WIDTH]), or [CLOSE_BUTTON__WIDTH]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__WIDTH)` does not return `Int`
+     * * [height][Dimension.height] - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__HEIGHT]), or [CLOSE_BUTTON__HEIGHT]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__HEIGHT)` does not return `Int`
      *
      * @return Close button size
      */
-    protected open fun createCloseButtonSize(): Dimension = Dimension(closeButtonWidth, closeButtonHeight)
+    protected open fun createCloseButtonSize(): Dimension {
+        return Dimension(
+            this.getUiDefaultsInt(UI_KEY__CLOSE_BUTTON__WIDTH, CLOSE_BUTTON__WIDTH),
+            this.getUiDefaultsInt(UI_KEY__CLOSE_BUTTON__HEIGHT, CLOSE_BUTTON__HEIGHT)
+        )
+    }
 
+    /**
+     * Creating the size of the close button area
+     *
+     * The values will be retrieved first:
+     *
+     * * "left padding" - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__PADDING_LEFT]), or [CLOSE_BUTTON__PADDING_LEFT]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__PADDING_LEFT)` does not return `Int`
+     * * "right padding" - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__PADDING_RIGHT]), or [CLOSE_BUTTON__PADDING_RIGHT]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__PADDING_RIGHT)` does not return `Int`
+     * * "top padding" - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__PADDING_TOP]), or [CLOSE_BUTTON__PADDING_TOP]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__PADDING_TOP)` does not return `Int`
+     * * "bottom padding" - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__PADDING_BOTTOM]), or [CLOSE_BUTTON__PADDING_BOTTOM]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__PADDING_BOTTOM)` does not return `Int`
+     *
+     * Result will be Dimension(
+     *
+     * `closeButtonSize`.[width][Dimension.width] + "left padding" + "right padding",
+     *
+     * `closeButtonSize`.[height][Dimension.height] + "top padding" + "bottom padding"
+     *
+     * )
+     *
+     * @return Close button area size
+     */
+    @Suppress("GrazieInspection")
+    protected open fun createCloseButtonPlaceSize(closeButtonSize: Dimension): Dimension {
+        val paddingLeft = this.getUiDefaultsInt(UI_KEY__CLOSE_BUTTON__PADDING_LEFT, CLOSE_BUTTON__PADDING_LEFT)
+        val paddingRight = this.getUiDefaultsInt(UI_KEY__CLOSE_BUTTON__PADDING_RIGHT, CLOSE_BUTTON__PADDING_RIGHT)
+        val paddingTop = this.getUiDefaultsInt(UI_KEY__CLOSE_BUTTON__PADDING_TOP, CLOSE_BUTTON__PADDING_TOP)
+        val paddingBottom = this.getUiDefaultsInt(UI_KEY__CLOSE_BUTTON__PADDING_BOTTOM, CLOSE_BUTTON__PADDING_BOTTOM)
+
+        return Dimension(
+            closeButtonSize.width + paddingLeft + paddingRight,
+            closeButtonSize.height + paddingTop + paddingBottom
+
+        )
+    }
+
+    /**
+     * Creating a close button offset relative to the close button area
+     *
+     * Result will have:
+     *
+     * * [x][Point.x] - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__TRANSLATE_X]), or [CLOSE_BUTTON__TRANSLATE_X]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__TRANSLATE_X)` does not return `Int`
+     * * [y][Point.y] - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__TRANSLATE_Y]), or [CLOSE_BUTTON__TRANSLATE_Y]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__TRANSLATE_Y)` does not return `Int`
+     *
+     * @return Offset of the close button relative to the close button area
+     */
+    protected open fun createCloseButtonTranslate(): Point {
+        return Point(
+            this.getUiDefaultsInt(UI_KEY__CLOSE_BUTTON__TRANSLATE_X, CLOSE_BUTTON__TRANSLATE_X),
+            this.getUiDefaultsInt(UI_KEY__CLOSE_BUTTON__TRANSLATE_Y, CLOSE_BUTTON__TRANSLATE_Y)
+        )
+    }
+
+
+    /**
+     * Creating a close button image in the normal state (no hover and no click)
+     *
+     * By default, this method returns [Image] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON_IMAGE__IDLE]), or [CLOSE_BUTTON_IMAGE__IDLE]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON_IMAGE__IDLE)` does not return `Image`. Result image will be scale to `closeButtonSize`
+     *
+     * @param closeButtonSize Close button size
+     *
+     * @return Image of the close button in normal state
+     */
+    protected open fun createCloseButtonImageIdle(closeButtonSize: Dimension): Image =
+        this.getUiDefaultsImage(UI_KEY__CLOSE_BUTTON_IMAGE__IDLE, CLOSE_BUTTON_IMAGE__IDLE, closeButtonSize)
+
+    /**
+     * Creating a close button image on hover but without pressing
+     *
+     * By default, this method returns [Image] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON_IMAGE__HOVERED]), or [CLOSE_BUTTON_IMAGE__HOVERED]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON_IMAGE__HOVERED)` does not return `Image`. Result image will be scale to `closeButtonSize`
+     *
+     * @param closeButtonSize Close button size
+     *
+     * @return Close button image on hover but without pressing
+     */
+    protected open fun createCloseButtonImageHovered(closeButtonSize: Dimension): Image =
+        this.getUiDefaultsImage(UI_KEY__CLOSE_BUTTON_IMAGE__HOVERED, CLOSE_BUTTON_IMAGE__HOVERED, closeButtonSize)
+
+    /**
+     * Create close button image on hover and pressing
+     *
+     * By default, this method returns [Image] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON_IMAGE__PRESSED]), or [CLOSE_BUTTON_IMAGE__PRESSED]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON_IMAGE__PRESSED)` does not return `Image`. Result image will be scale to `closeButtonSize`
+     *
+     * @param closeButtonSize Close button size
+     *
+     * @return Close button image on hover and pressing
+     */
+    protected open fun createCloseButtonImagePressed(closeButtonSize: Dimension): Image =
+        this.getUiDefaultsImage(UI_KEY__CLOSE_BUTTON_IMAGE__PRESSED, CLOSE_BUTTON_IMAGE__PRESSED, closeButtonSize)
+
+
+    /**
+     * Creating a drop location drawing color
+     *
+     * By default - [Color] stored in [UIManager] with key [UI_KEY__DROP_LOCATION__COLOR] (if exists) or [DROP_LOCATION__COLOR]
+     *
+     * @return Drop location drawing color
+     */
+    protected open fun createDropLocationColor(): Color = this.getUiDefaults(Color::class.java, UI_KEY__DROP_LOCATION__COLOR, DROP_LOCATION__COLOR)
+
+
+
+    /**
+     * Updates properties:
+     *
+     * * [_closeButtonSize] = [createCloseButtonSize] ()
+     * * [_closeButtonPlaceSize] = [createCloseButtonPlaceSize] (`_closeButtonSize`)
+     * * [_closeButtonTranslate] = [createCloseButtonTranslate] ()
+     * * [_closeButtonImageIdle] = [createCloseButtonImageIdle] (`_closeButtonSize`)
+     * * [_closeButtonImageHovered] = [createCloseButtonImageHovered] (`_closeButtonSize`)
+     * * [_closeButtonImagePressed] = [createCloseButtonImagePressed] (`_closeButtonSize`)
+     * * [_dropLocationColor] = [createDropLocationColor] ()
+     *
+     * After that, it runs the [uiConfigChanged][OreTabPaneUIListener.uiConfigChanged] method for all listeners
+     */
+    protected open fun updateUiDefaults() {
+        val closeButtonSize = this.createCloseButtonSize()
+        this._closeButtonSize = closeButtonSize
+        this._closeButtonPlaceSize = this.createCloseButtonPlaceSize(closeButtonSize)
+        this._closeButtonTranslate = this.createCloseButtonTranslate()
+        this._closeButtonImageIdle = this.createCloseButtonImageIdle(closeButtonSize)
+        this._closeButtonImageHovered = this.createCloseButtonImageHovered(closeButtonSize)
+        this._closeButtonImagePressed = this.createCloseButtonImagePressed(closeButtonSize)
+        this._dropLocationColor = this.createDropLocationColor()
+
+        this.forEachListener { it.uiConfigChanged(this) }
+    }
+    // endregion
+
+
+    // region Sizes & coordinates
     /**
      * Close button size; mutable version of [closeButtonSize]
      *
      * By default - the result of calling [createCloseButtonSize]
      */
     @Suppress("PropertyName")
-    protected open var _closeButtonSize: Dimension = this.createCloseButtonSize()
+    protected var _closeButtonSize: Dimension = this.createCloseButtonSize()
 
     /**
      * Close button size
+     *
+     * By default, it has values:
+     *
+     * * [width][Dimension.width] - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__WIDTH]), or [CLOSE_BUTTON__WIDTH]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__WIDTH)` does not return `Int`
+     * * [height][Dimension.height] - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__HEIGHT]), or [CLOSE_BUTTON__HEIGHT]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__HEIGHT)` does not return `Int`
      */
     open val closeButtonSize: Dimension
         get() = this._closeButtonSize
 
 
     /**
-     * Creating the size of the close button area
-     *
-     * By default - Dimension(
-     * closeButtonSize.width + [closeButtonPaddingLeft] + [closeButtonPaddingRight],
-     * closeButtonSize.height + [closeButtonPaddingTop] + [closeButtonPaddingBottom]
-     * )
-     *
-     * @return Close button area size
-     */
-    protected open fun createCloseButtonPlaceSize(closeButtonSize: Dimension): Dimension {
-        return Dimension(
-            closeButtonSize.width + closeButtonPaddingLeft + closeButtonPaddingRight,
-            closeButtonSize.height + closeButtonPaddingTop + closeButtonPaddingBottom
-        )
-    }
-
-    /**
      * The size of the close button area; mutable version of [closeButtonPlaceSize]
      *
-     * By default - the result of calling [createCloseButtonPlaceSize] ([closeButtonSize])
+     * By default - the result of calling [createCloseButtonPlaceSize] ([_closeButtonSize])
      */
     @Suppress("PropertyName")
-    protected open var _closeButtonPlaceSize: Dimension = this.createCloseButtonPlaceSize(this.closeButtonSize)
+    protected var _closeButtonPlaceSize: Dimension = this.createCloseButtonPlaceSize(this._closeButtonSize)
 
     /**
      * Size of close button area (must be equal to or greater than [closeButtonSize])
+     *
+     * By default, it uses "virtual" values:
+     *
+     * * "left padding" - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__PADDING_LEFT]), or [CLOSE_BUTTON__PADDING_LEFT]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__PADDING_LEFT)` does not return `Int`
+     * * "right padding" - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__PADDING_RIGHT]), or [CLOSE_BUTTON__PADDING_RIGHT]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__PADDING_RIGHT)` does not return `Int`
+     * * "top padding" - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__PADDING_TOP]), or [CLOSE_BUTTON__PADDING_TOP]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__PADDING_TOP)` does not return `Int`
+     * * "bottom padding" - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__PADDING_BOTTOM]), or [CLOSE_BUTTON__PADDING_BOTTOM]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__PADDING_BOTTOM)` does not return `Int`
+     *
+     * which are used when creating the result:
+     *
+     * Dimension(
+     *
+     * `closeButtonSize`.[width][Dimension.width] + "left padding" + "right padding",
+     *
+     * `closeButtonSize`.[height][Dimension.height] + "top padding" + "bottom padding"
+     *
+     * )
      */
+    @Suppress("GrazieInspection")
     open val closeButtonPlaceSize: Dimension
         get() = this._closeButtonPlaceSize
 
-
-    /**
-     * Creating a close button offset relative to the close button area
-     *
-     * By default - Point([closeButtonTranslateX], [closeButtonTranslateY])
-     *
-     * @return Offset of the close button relative to the close button area
-     */
-    protected open fun createCloseButtonTranslate(): Point = Point(closeButtonTranslateX, closeButtonTranslateY)
 
     /**
      * Offset of the close button relative to the close button area; mutable version of [closeButtonTranslate]
@@ -468,10 +602,17 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
      * By default - the result of calling [createCloseButtonTranslate]
      */
     @Suppress("PropertyName")
-    protected open var _closeButtonTranslate: Point = this.createCloseButtonTranslate()
+    protected var _closeButtonTranslate: Point = this.createCloseButtonTranslate()
 
     /**
      * Offset of the close button relative to the close button area
+     *
+     * By default, it has values:
+     *
+     * * [x][Point.x] - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__TRANSLATE_X]), or [CLOSE_BUTTON__TRANSLATE_X]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__TRANSLATE_X)` does not return `Int`
+     * * [y][Point.y] - [Int] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON__TRANSLATE_Y]), or [CLOSE_BUTTON__TRANSLATE_Y]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON__TRANSLATE_Y)` does not return `Int`
      */
     open val closeButtonTranslate: Point
         get() = this._closeButtonTranslate
@@ -480,121 +621,85 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
 
     // region Close button images
     /**
-     * Creating a close button image in the normal state (no hover and no click)
-     *
-     * @param closeButtonSize Close button size
-     *
-     * @return Image of the close button in normal state
-     */
-    protected open fun createCloseButtonImageIdle(closeButtonSize: Dimension): Image {
-        return createCloseButtonImage(color = closeButtonDefaultColorIdle, circle = false, width = closeButtonSize.width, height = closeButtonSize.height)
-    }
-
-    /**
      * The image of the close button in the normal state (without hovering and pressing); mutable version of [closeButtonImageIdle]
      *
-     * By default - [createCloseButtonImageIdle] ([closeButtonSize])
+     * By default - result of calling [createCloseButtonImageIdle] ([_closeButtonSize])
      */
     @Suppress("PropertyName")
-    protected open var _closeButtonImageIdle: Image = this.createCloseButtonImageIdle(this.closeButtonSize)
+    protected var _closeButtonImageIdle: Image = this.createCloseButtonImageIdle(this._closeButtonSize)
 
     /**
      * The image of the close button in the normal state (without hovering and pressing)
+     *
+     * By default - [Image] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON_IMAGE__IDLE]), or [CLOSE_BUTTON_IMAGE__IDLE]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON_IMAGE__IDLE)` does not return `Image`. Image is scaled to [closeButtonSize]
      */
     open val closeButtonImageIdle: Image
         get() = this._closeButtonImageIdle
 
 
     /**
-     * Creating a close button image on hover but without pressing
-     *
-     * @param closeButtonSize Close button size
-     *
-     * @return Close button image on hover but without pressing
-     */
-    protected open fun createCloseButtonImageHovered(closeButtonSize: Dimension): Image {
-        return createCloseButtonImage(color = closeButtonDefaultColorHovered, circle = true, width = closeButtonSize.width, height = closeButtonSize.height)
-    }
-
-    /**
      * An image of a close button on hover, but without pressing; mutable version of closeButtonImageHovered
      *
-     * By default - [createCloseButtonImageHovered] ([closeButtonSize])
+     * By default - result of calling [createCloseButtonImageHovered] ([_closeButtonSize])
      */
     @Suppress("PropertyName")
-    protected open var _closeButtonImageHovered: Image = this.createCloseButtonImageHovered(this.closeButtonSize)
+    protected var _closeButtonImageHovered: Image = this.createCloseButtonImageHovered(this._closeButtonSize)
 
     /**
      * An image of a close button on hover, but without pressing
+     *
+     * By default - [Image] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON_IMAGE__HOVERED]), or [CLOSE_BUTTON_IMAGE__HOVERED]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON_IMAGE__HOVERED)` does not return `Image`. Image is scaled to [closeButtonSize]
      */
     open val closeButtonImageHovered: Image
         get() = this._closeButtonImageHovered
 
 
     /**
-     * Create close button image on hover and pressing
-     *
-     * @param closeButtonSize Close button size
-     *
-     * @return Close button image on hover and pressing
-     */
-    protected open fun createCloseButtonImagePressed(closeButtonSize: Dimension): Image {
-        return createCloseButtonImage(color = closeButtonDefaultColorPressed, circle = true, width = closeButtonSize.width, height = closeButtonSize.height)
-    }
-
-    /**
      * Close button image on hover and pressing; mutable version of [closeButtonImagePressed]
      *
-     * By default - [createCloseButtonImagePressed] ([closeButtonSize])
+     * By default - result of calling [createCloseButtonImagePressed] ([_closeButtonSize])
      */
     @Suppress("PropertyName")
-    protected open var _closeButtonImagePressed: Image = this.createCloseButtonImagePressed(this.closeButtonSize)
+    protected var _closeButtonImagePressed: Image = this.createCloseButtonImagePressed(this._closeButtonSize)
 
     /**
      * Close button image on hover and pressing
+     *
+     * By default - [Image] found with [UIManager.get] ([UI_KEY__CLOSE_BUTTON_IMAGE__PRESSED]), or [CLOSE_BUTTON_IMAGE__PRESSED]
+     * if `UIManager.get(UI_KEY__CLOSE_BUTTON_IMAGE__PRESSED)` does not return `Image`. Image is scaled to [closeButtonSize]
      */
     open val closeButtonImagePressed: Image
         get() = this._closeButtonImagePressed
     // endregion
 
 
-    /**
-     * Updates properties:
-     *
-     * * [_closeButtonSize] = [createCloseButtonSize] ()
-     * * [_closeButtonPlaceSize] = [createCloseButtonPlaceSize] ([closeButtonSize])
-     * * [_closeButtonTranslate] = [createCloseButtonTranslate] ()
-     * * [_closeButtonImageIdle] = [createCloseButtonImageIdle] ([closeButtonSize])
-     * * [_closeButtonImageHovered] = [createCloseButtonImageHovered] ([closeButtonSize])
-     * * [_closeButtonImagePressed] = [createCloseButtonImagePressed] ([closeButtonSize])
-     *
-     * After that, it runs the [uiConfigChanged][OreTabPaneUIListener.uiConfigChanged] method for all listeners
-     */
-    protected open fun updateUiDefaults() {
-        this._closeButtonSize = this.createCloseButtonSize()
-        this._closeButtonPlaceSize = this.createCloseButtonPlaceSize(this.closeButtonSize)
-        this._closeButtonTranslate = this.createCloseButtonTranslate()
-        this._closeButtonImageIdle = this.createCloseButtonImageIdle(this.closeButtonSize)
-        this._closeButtonImageHovered = this.createCloseButtonImageHovered(this.closeButtonSize)
-        this._closeButtonImagePressed = this.createCloseButtonImagePressed(this.closeButtonSize)
-        this._dropLocationColor = this.createDropLocationColor()
-
-        this.forEachListener { it.uiConfigChanged(this) }
-    }
-
-
     // region Listeners
+    /**
+     * TODO translate
+     */
+    @Suppress("FunctionName")
+    protected open fun _createListeners(): MutableSet<OreTabPaneUIListener> = HashSet()
+
     /**
      * A set of listeners; mutable version of [listeners]
      */
     @Suppress("PropertyName")
-    protected open val _listeners: MutableSet<OreTabPaneUIListener> = HashSet()
+    protected val _listeners: MutableSet<OreTabPaneUIListener> = this._createListeners()
+
+
+    /**
+     * TODO translate
+     */
+    protected open fun createListeners(mutable: MutableSet<OreTabPaneUIListener>): Set<OreTabPaneUIListener> = Collections.unmodifiableSet(mutable)
 
     /**
      * A set of listeners
      */
     @Suppress("unused")
-    open val listeners: Set<OreTabPaneUIListener> = Collections.unmodifiableSet(this._listeners)
+    open val listeners: Set<OreTabPaneUIListener> = this.createListeners(this._listeners)
+
 
     /**
      * Executes a [block] for each of the [listeners]
@@ -716,6 +821,11 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
         (c as? JLayer<*>)?.let {
             it.layerEventMask = AWTEvent.MOUSE_EVENT_MASK or AWTEvent.MOUSE_MOTION_EVENT_MASK
         }
+    }
+
+    override fun updateUI(l: JLayer<out JTabbedPane>?) {
+        super.updateUI(l)
+        this.updateUiDefaults()
     }
 
     override fun uninstallUI(c: JComponent?) {
@@ -1108,24 +1218,17 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
 
     // region Drop location
     /**
-     * Creating a drop location drawing color
-     *
-     * By default - [dropLocationDefaultColor]
-     *
-     * @return Drop location drawing color
-     */
-    protected open fun createDropLocationColor(): Color = dropLocationDefaultColor
-
-    /**
      * Drop location drawing color; mutable version of [dropLocationColor]
      *
-     * By default - [createDropLocationColor] ()
+     * By default - result of calling [createDropLocationColor]
      */
     @Suppress("PropertyName")
-    protected open var _dropLocationColor: Color = createDropLocationColor()
+    protected var _dropLocationColor: Color = this.createDropLocationColor()
 
     /**
      * Drop location drawing color
+     *
+     *  By default - [Color] stored in [UIManager] with key [UI_KEY__DROP_LOCATION__COLOR] (if exists) or [DROP_LOCATION__COLOR]
      */
     @Suppress("MemberVisibilityCanBePrivate")
     val dropLocationColor: Color
@@ -1168,9 +1271,4 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
         pane.repaint()
     }
     // endregion
-
-
-    init {
-        store(this)
-    }
 }

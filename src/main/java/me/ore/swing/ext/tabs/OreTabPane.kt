@@ -678,7 +678,6 @@ open class OreTabPane(
                 for (i in 0 until pane.tabCount) {
                     (pane.getTabComponentAt(i) as? OreTabTitle)?.closeButtonSize = closeButtonPlaceSize
                 }
-                pane.repaint()
             }
         }
     }

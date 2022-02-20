@@ -2,7 +2,7 @@ package me.ore.swing.ext.tabs
 
 import me.ore.swing.ext.OreSwingExt
 import me.ore.swing.ext.util.OreGraphicsConfig
-import me.ore.swing.ext.util.OreSwingShapeInfo
+import me.ore.swing.ext.util.OreSwingShapeTemplate
 import java.awt.*
 import java.awt.event.MouseEvent
 import java.awt.geom.Path2D
@@ -100,8 +100,8 @@ open class OreTabPaneUI: LayerUI<JTabbedPane>() {
         fun createCloseButtonImage(color: Color, circle: Boolean, width: Int = CLOSE_BUTTON__WIDTH, height: Int = CLOSE_BUTTON__HEIGHT): BufferedImage {
             val originalPath = if (circle) { CLOSE_BUTTON_IMAGE__PATH__CIRCLE } else { CLOSE_BUTTON_IMAGE__PATH__CROSS }
 
-            val info = OreSwingShapeInfo(Rectangle(CLOSE_BUTTON_IMAGE__VIEW_BOX), Path2D.Double(originalPath))
-            info.scale(width / info.viewBox.width, height / info.viewBox.height)
+            val info = OreSwingShapeTemplate(Rectangle(CLOSE_BUTTON_IMAGE__VIEW_BOX), Path2D.Double(originalPath))
+            info.scale(width / info.width, height / info.height)
 
             return info.toImage(OreGraphicsConfig(color = color))
         }
